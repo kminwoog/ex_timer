@@ -21,22 +21,22 @@ Maybe the most important point to note that you should be keep a small queue cal
 ```elixir
 defmodule Scheduler do
   def init(state) do
-    ExTimer.add(state, {do_timer1/2, 1, 9}, 2000)
-    ExTimer.add(state, {do_timer1/2, 2, 9}, 2000)
-    ExTimer.add(state, {do_timer2/2, 3, 9}, 8000)
-    ExTimer.add(state, {do_timer2/2, 3, 9}, 5000)
+    ExTimer.add(state, {on_timer1/2, 1, 9}, 2000)
+    ExTimer.add(state, {on_timer1/2, 2, 9}, 2000)
+    ExTimer.add(state, {on_timer2/2, 3, 9}, 8000)
+    ExTimer.add(state, {on_timer2/2, 3, 9}, 5000)
   end
   
   def update(state) do
     ExTimer.update(state)
   end
   
-  def do_timer1({id, value}, state) do
+  def on_timer1({id, value}, state) do
     IO.puts("#{inspect(__ENV__.function)} (#{id}, #{value}) called")
     state
   end
   
-  def do_timer2({id, value}, state) do
+  def on_timer2({id, value}, state) do
     IO.puts("#{inspect(__ENV__.function)} (#{id}, #{value}) called")
     state
   end
