@@ -11,11 +11,10 @@ In elixir as the number of queues increases, cause performance issues.
 Maybe the most important point to note that you should be keep a small queue called as `mailbox`.
 
 ## Specification
-* To insert new timer is very fast, but not fast to delete
-  * insertion : O(logn)
-  * deletion  : O(n)
+* To insert and delete new timer is reasonably fast
+  * insertion, deletion : O(n)
 * Don't inspect all registered a lot of timers to check if time has expired.
-  * be lightweight what it check time-out 
+  * be lightweight what it check time-out : O(1)
   
 ## Usage
 ```elixir
