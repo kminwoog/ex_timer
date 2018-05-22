@@ -11,17 +11,18 @@ defmodule ExTimer do
 
   alias ExTimer.Node
 
-  defstruct __timers__: []
-  @type t :: %ExTimer{__timers__: list}
-
   @doc """
   add new timer.
 
   ## Examples
 
       iex> state = %{ __timers__: [] }
-      iex> ExTimer.add(state, {:handler, :name, "uhaha"}, 2000)
-      %{__timers__: [%ExTimer{msg: {:handler, :name, "uhaha"}, time: 2000}]}
+      iex> state = ExTimer.add(state, {:handler, :name, "uhaha"}, 2000)
+      iex> [node] = state.__timers__
+      iex> node.msg == {:handler, :name, "uhaha"}
+      true
+      iex> node.time == 2000
+      true
 
   """
   @spec add(map, tuple, integer) :: map
@@ -43,8 +44,9 @@ defmodule ExTimer do
     end
   end
 
-  defp now() do
-    :os.system_time(:milliseconds)
+  @doc false
+  def now() do
+    :os.system_time(:milli_seconds)
   end
 
   @doc """
@@ -52,7 +54,7 @@ defmodule ExTimer do
 
   ## Examples
 
-      iex> state = %{__timers__: [%ExTimer{msg: {:handler, :name, "uhaha"}, time: 2000}]}
+      iex> state = %{__timers__: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, time: 2000}]}
       iex> ExTimer.delete(state, {:handler, :name, "uhaha"})
       %{__timers__: []}
 
@@ -81,28 +83,26 @@ defmodule ExTimer do
     size == tuple_size(rhs) and Enum.all?(0..(size - 1), fn i -> elem(lhs, i) == elem(rhs, i) end)
   end
 
-  def update(state) do
-    timers = state.__timers__
-    expired(state, timers, now())
-  end
-
-  defp expired(state, [], _now) do
-    state
-  end
-
-  defp expired(state, [h | t], now) do
-    if h.due >= now do
-      quote do
-        __CALLER__.module.handle_call(h.msg, state)
-      end
-
-      state = put_in(state.__timers__, t)
-      expired(state, t, now)
-    else
-      state
+  defmacro update(state) do
+    quote bind_quoted: [state: state] do
+      timers = state.__timers__
+      ExTimer.expired(state, timers, ExTimer.now(), __ENV__.module)
     end
   end
 
-  def handle_call(_msg, _state) do
+  @doc false
+  def expired(state, [], _now, _module) do
+    state
+  end
+
+  @doc false
+  def expired(state, [h | t], now, module) do
+    if h.due <= now do
+      {:noreply, state} = module.handle_call(h.msg, state)
+      state = put_in(state.__timers__, t)
+      expired(state, t, now, module)
+    else
+      state
+    end
   end
 end
