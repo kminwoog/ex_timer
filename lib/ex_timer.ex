@@ -98,7 +98,7 @@ defmodule ExTimer do
   @doc false
   def expired(state, [h | t], now, module) do
     if h.due <= now do
-      {:noreply, state} = module.handle_call(h.msg, state)
+      {:noreply, state} = module.handle_info(h.msg, state)
       state = put_in(state.__timers__, t)
       expired(state, t, now, module)
     else

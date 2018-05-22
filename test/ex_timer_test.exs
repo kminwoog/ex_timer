@@ -22,14 +22,14 @@ defmodule ExTimerTest do
     assert length(state.__timers__) == 0
   end
 
-  def handle_call({:timeout_no_delay, arg0, arg1}, state) do
+  def handle_info({:timeout_no_delay, arg0, arg1}, state) do
     assert arg0 == :name
     assert arg1 == "min"
     state = put_in(state[:call], state.call + 1)
     {:noreply, state}
   end
 
-  def handle_call({:timeout_with_delay, arg0, arg1}, state) do
+  def handle_info({:timeout_with_delay, arg0, arg1}, state) do
     assert arg0 == :name
     assert arg1 == "woog"
     state = put_in(state[:call], state.call + 1)
