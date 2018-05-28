@@ -1,4 +1,6 @@
 # ex_timer
+ [![Hex.pm Version](https://img.shields.io/hexpm/v/ex_timer.svg)](https://hex.pm/packages/ex_timer)
+ 
 Better-performance timer in elixir
 
 _not using extra gen_server and not using any other processes for timer_
