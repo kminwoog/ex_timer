@@ -23,7 +23,7 @@ If [available in Hex](https://hex.pm/docs/publish), add in deps of `mix.exs`
 ```elixir
 def deps do
   [
-    {:ex_timer, "~> 0.1.2"}
+    {:ex_timer, "~> 0.2"}
   ]
 end
 ```
