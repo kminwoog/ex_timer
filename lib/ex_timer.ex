@@ -1,7 +1,7 @@
 defmodule ExTimer.Node do
-  defstruct due: 0, time: 0, msg: {}
+  defstruct delay: 0, msg: {}
 
-  @type t :: %ExTimer.Node{due: integer, time: integer, msg: tuple | atom}
+  @type t :: %ExTimer.Node{delay: float, msg: tuple | atom}
 end
 
 defmodule ExTimer do
@@ -17,20 +17,19 @@ defmodule ExTimer do
   add new timer.
 
   ## Examples
-    iex> state = %{ timers: [] }
+    iex> state = %{ timers: [], elapsed: 0 }
     iex> state = ExTimer.add(state, {:handler, :name, "uhaha"}, 2000)
-    iex> [node] = state.timers
-    iex> node.msg == {:handler, :name, "uhaha"}
+    iex> [timer] = state.timers
+    iex> timer.msg == {:handler, :name, "uhaha"}
     true
-    iex> node.time == 2000
+    iex> timer.delay == 2000/1000
     true
   """
   @spec add(state, tuple | atom, integer) :: state
-  def add(state, msg, time) when is_tuple(msg) or is_atom(msg) do
+  def add(state, msg, delay) when is_tuple(msg) or is_atom(msg) do
     timers =
       insert(state.timers, %Node{
-        due: now() + time,
-        time: time,
+        delay: delay / 1000,
         msg: msg
       })
 
@@ -40,9 +39,9 @@ defmodule ExTimer do
   @doc """
   delete the previous registerd timer.
   ## Examples
-    iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, time: 2000}]}
+    iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, delay: 2000}], elapsed: 0}
     iex> ExTimer.remove(state, {:handler, :name, "uhaha"})
-    %{timers: []}
+    %{timers: [], elapsed: 0}
   """
   @spec remove(state, tuple | atom) :: state
   def remove(state, msg) when is_tuple(msg) or is_atom(msg) do
@@ -54,9 +53,9 @@ defmodule ExTimer do
   @doc """
   delete all the registerd timers.
   ## Examples
-    iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, time: 2000}]}
+    iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, delay: 2000}], elapsed: 0}
     iex> ExTimer.clear(state)
-    %{timers: []}
+    %{timers: [], elapsed: 0}
   """
   @spec clear(state, boolean) :: state
   defmacro clear(state, callback? \\ false) do
@@ -67,11 +66,12 @@ defmodule ExTimer do
     end
   end
 
+  @doc false
   def clear_expired(state, caller, callback?) do
     if callback? do
-      {state, _} =
-        reduce(state.timers, state, 0, fn node, state ->
-          {:noreply, state} = caller.handle_info(node.msg, state)
+      state =
+        Enum.reduce(state.timers, state, fn timer, state ->
+          {:noreply, state} = caller.handle_info(timer.msg, state)
           state
         end)
 
@@ -81,18 +81,22 @@ defmodule ExTimer do
     end
   end
 
-  defmacro update(state) do
+  @spec update(state, float) :: state
+  defmacro update(state, delta) do
     timer = __ENV__.module
 
-    quote bind_quoted: [state: state, timer: timer] do
-      timer.update_expired(state, __ENV__.module)
+    quote bind_quoted: [state: state, delta: delta, timer: timer] do
+      timer.update_expired(state, delta, __ENV__.module)
     end
   end
 
-  def update_expired(state, caller) do
+  @doc false
+  def update_expired(state, delta, caller) do
+    state = put_in(state.elapsed, state.elapsed + delta)
+
     {state, timers} =
-      reduce(state.timers, state, now(), fn node, state ->
-        {:noreply, state} = caller.handle_info(node.msg, state)
+      reduce(state.timers, state, fn timer, state ->
+        {:noreply, state} = caller.handle_info(timer.msg, state)
         state
       end)
 
@@ -103,15 +107,20 @@ defmodule ExTimer do
   defp insert([], timer), do: [timer]
 
   defp insert([h | t] = sorted, timer) do
-    if h.time < timer.time do
+    if h.delay < timer.delay do
       [h | insert(t, timer)]
     else
       [timer | sorted]
     end
   end
 
-  defp now() do
-    :os.system_time(:milli_seconds)
+  @spec next_expire_time(state, integer) :: integer
+  def next_expire_time(state, min_time) do
+    if Enum.empty?(state.timers) do
+      min_time
+    else
+      min(hd(state.timers).delay - state.elapsed, 0)
+    end
   end
 
   defp delete(nil, _msg), do: []
@@ -130,7 +139,7 @@ defmodule ExTimer do
 
     size == tuple_size(rhs) and
       Enum.all?(0..(size - 1), fn i ->
-        is_atom(elem(lhs, i)) == is_atom(elem(rhs, i))
+        elem(lhs, i) == elem(rhs, i)
       end)
   end
 
@@ -139,14 +148,36 @@ defmodule ExTimer do
   end
 
   defp equal?(_lhs, _rhs), do: false
-  def reduce(nil, state, _now, _func), do: {state, []}
-  def reduce([], state, _now, _func), do: {state, []}
 
-  def reduce([h | t] = list, state, now, func) do
-    if now == 0 or h.due <= now do
-      reduce(t, func.(h, state), now, func)
+  @spec reduce(nil | list, state, function) :: {state, list}
+  def reduce(nil, state, _func), do: {state, []}
+  def reduce([], state, _func), do: {state, []}
+
+  def reduce([h | t] = list, state, func) do
+    if h.delay <= state.elapsed do
+      reduce(t, func.(h, state), func)
     else
       {state, list}
     end
+  end
+
+  @spec adjust(state, list) :: list
+  def adjust(state) do
+    timers = adjust(state.elapsed, state.timers)
+    put_in(state.timers, timers)
+  end
+
+  defp adjust(_elapsed, []), do: []
+
+  defp adjust(elapsed, [timer | t]) do
+    delay =
+      if timer.delay > elapsed do
+        timer.delay - elapsed
+      else
+        0
+      end
+
+    timer = put_in(timer.delay, delay)
+    [timer | adjust(elapsed, t)]
   end
 end
