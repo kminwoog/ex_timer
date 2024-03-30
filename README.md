@@ -39,7 +39,7 @@ defmodule Scheduler do
   use GenServer
 
   defmodule State do
-    defstruct timers: [], elapsed: 0, last_tick: 0
+    defstruct timers: [], elapsed_ticks: 0, last_tick: 0
   end
 
   def start_link(_) do
