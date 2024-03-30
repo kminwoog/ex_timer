@@ -24,18 +24,25 @@ defmodule ExTimer do
   import Bitwise
   @int_max (1 <<< 31) - 1
 
-  @doc """
+  @doc ~S"""
   add new timer to send msg after time milliseconds.
 
   ## Examples
 
-    iex> state = %{ timers: [], elapsed_ticks: 0 }
-    iex> state = ExTimer.add(state, {:handler, :name, "uhaha"}, 2000)
-    iex> [timer] = state.timers
-    iex> timer.msg == {:handler, :name, "uhaha"}
-    true
-    iex> timer.delay == 2000
-    true
+  ```elixir
+  iex> state = %{timers: [], elapsed_ticks: 0}
+  %{elapsed_ticks: 0, timers: []}
+  iex> state = ExTimer.add(state, {:handler, :name, "uhaha"}, 2000)
+  %{elapsed_ticks: 0, timers: [%ExTimer.Node{delay: 2000, msg: {:handler, :name, "uhaha"}}]}
+  iex> [timer] = state.timers
+  [%ExTimer.Node{delay: 2000, msg: {:handler, :name, "uhaha"}}]
+  iex> timer.msg == {:handler, :name, "uhaha"}
+  true
+  iex> timer.delay == 2000
+  true
+
+  ```
+
   """
   @spec add(state(), timer_node_msg(), time_ms()) :: state()
   def add(state, msg, delta_ms) when is_tuple(msg) or is_atom(msg) do
@@ -47,9 +54,16 @@ defmodule ExTimer do
 
   ## Examples
 
-    iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, delay: 2000}], elapsed_ticks: 0}
-    iex> ExTimer.remove(state, {:handler, :name, "uhaha"})
-    %{timers: [], elapsed_ticks: 0}
+  ```elixir
+  iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, delay: 2000}], elapsed_ticks: 0}
+  %{
+    elapsed_ticks: 0,
+    timers: [%ExTimer.Node{delay: 2000, msg: {:handler, :name, "uhaha"}}]
+  }
+  iex> ExTimer.remove(state, {:handler, :name, "uhaha"})
+  %{timers: [], elapsed_ticks: 0}
+
+  ```
   """
   @spec remove(state(), timer_node_msg()) :: state()
   def remove(state, msg) when is_tuple(msg) or is_atom(msg) do
@@ -58,14 +72,17 @@ defmodule ExTimer do
     put_in(state.timers, timers)
   end
 
-  @doc """
+  @doc ~S"""
   delete all the registerd timers.
 
   ## Examples
+  ```elixir
+  iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, delay: 2000}], elapsed_ticks: 0}
+  %{elapsed_ticks: 0, timers: [%ExTimer.Node{delay: 2000, msg: {:handler, :name, "uhaha"}}]}
+  iex> ExTimer.clear(state)
+  %{timers: [], elapsed_ticks: 0}
 
-    iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, delay: 2000}], elapsed_ticks: 0}
-    iex> ExTimer.clear(state)
-    %{timers: [], elapsed_ticks: 0}
+  ```
   """
   defmacro clear(state, callback? \\ false) do
     timer = __ENV__.module
@@ -91,6 +108,18 @@ defmodule ExTimer do
     end
   end
 
+  @doc """
+  call the callback handler (handle_info) for the timer that has elapsed.
+
+  ## Examples
+  ```elixir
+  now = System.system_time(:millisecond)
+  delta_ticks = now - state.last_update_tick
+  state = put_in(state.last_update_tick, now)
+  state = ExTimer.update(state, delta_ticks)
+
+  ```
+  """
   defmacro update(state, delta_ms) do
     timer = __ENV__.module
 
@@ -123,10 +152,16 @@ defmodule ExTimer do
   return true if found the timer at the given msg, otherwise return false
 
   ## Examples
+  ```elixir
+  iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, delay: 2000}], elapsed_ticks: 0}
+  %{
+    elapsed_ticks: 0,
+    timers: [%ExTimer.Node{delay: 2000, msg: {:handler, :name, "uhaha"}}]
+  }
+  iex> ExTimer.exist?(state, {:handler, :name, "uhaha"})
+  true
 
-    iex> state = %{timers: [%ExTimer.Node{msg: {:handler, :name, "uhaha"}, delay: 2000}], elapsed_ticks: 0}
-    iex> ExTimer.exist?(state, {:handler, :name, "uhaha"})
-    true
+  ```
   """
   @spec exist?(state(), timer_node_msg()) :: boolean
   def exist?(state, msg), do: exist_internal?(state.timers, msg)
@@ -155,8 +190,25 @@ defmodule ExTimer do
     end
   end
 
-  @spec next_expire_time(state(), time_ms()) :: time_ms()
-  def next_expire_time(state, min_time) do
+  @doc """
+  get the minimum time(milliseconds) for the timer to expired.
+
+  ## Examples
+
+  ```elixir
+  def handle_info(:tick, state) do
+    now = System.system_time(:millisecond)
+    delta_ticks = now - state.last_update_tick
+    state = put_in(state.last_update_tick, now)
+    state = ExTimer.update(state, delta_ticks)
+
+    Process.send_after(self(), :tick, ExTimer.next_expire_ticks(state, 1000))
+    {:noreply, state}
+  end
+  ```
+  """
+  @spec next_expire_ticks(state(), time_ms()) :: time_ms()
+  def next_expire_ticks(state, min_time) do
     if Enum.empty?(state.timers) do
       min_time
     else
@@ -204,8 +256,9 @@ defmodule ExTimer do
     end
   end
 
+  @doc false
   @spec adjust(state) :: state()
-  def adjust(state) do
+  defp adjust(state) do
     timers = adjust_internal(state.elapsed_ticks, state.timers)
     state = put_in(state.elapsed_ticks, 0)
     put_in(state.timers, timers)

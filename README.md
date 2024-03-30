@@ -57,9 +57,9 @@ defmodule Scheduler do
 
   def handle_info(:tick, state) do
     now = System.system_time(:millisecond)
-    delta = now - state.last_tick
+    delta_ticks = now - state.last_tick
     state = put_in(state.last_tick, now)
-    state = ExTimer.update(state, delta / 1000)
+    state = ExTimer.update(state, delta_ticks)
 
     Process.send_after(self(), :tick, :rand.uniform(1000))
     {:noreply, state}
@@ -93,12 +93,12 @@ defmodule ExTimerTest do
     assert length(state.timers) == 0
 
     state = ExTimer.add(state, {:timeout_with_delay, :name, "woog"}, 400)
-    state = ExTimer.update(state, 100 / 1000)
+    state = ExTimer.update(state, 100)
     assert state.calls == 1
     assert length(state.timers) != 0
 
     # after sleep for delay
-    state = ExTimer.update(state, 300 / 1000)
+    state = ExTimer.update(state, 300)
     assert state.calls == 2
     assert length(state.timers) == 0
 
@@ -136,13 +136,13 @@ defmodule ExTimerTest do
     # delay
     state = ExTimer.add(state, {:timer4, 1, 2}, 2300)
     assert elem(hd(state.timers).msg, 0) == :timer4
-    assert hd(state.timers).delay == 2.3
+    assert hd(state.timers).delay == 2300
     state = ExTimer.add(state, {:timer5, 1, 2}, 1700)
     assert elem(hd(state.timers).msg, 0) == :timer5
-    assert hd(state.timers).delay == 1.7
+    assert hd(state.timers).delay == 1700
     state = ExTimer.add(state, {:timer6, 1, 2}, 1900)
     assert elem(hd(state.timers).msg, 0) == :timer5
-    assert hd(state.timers).delay == 1.7
+    assert hd(state.timers).delay == 1700
 
     # adjust
     assert state.elapsed == 0
@@ -153,21 +153,21 @@ defmodule ExTimerTest do
     assert state.calls == 0
 
     # elapsed 1300ms
-    state = ExTimer.update(state, 1.3)
+    state = ExTimer.update(state, 1300)
     assert length(state.timers) == 3
     assert state.calls == 0
     # elapsed 400ms (total 1700ms)
-    state = ExTimer.update(state, 0.4)
+    state = ExTimer.update(state, 400)
     assert elem(hd(state.timers).msg, 0) == :timer6
     assert length(state.timers) == 2
     assert state.calls == 1
     # elapsed 200ms (total 1900ms)
-    state = ExTimer.update(state, 0.2)
+    state = ExTimer.update(state, 200)
     assert elem(hd(state.timers).msg, 0) == :timer4
     assert length(state.timers) == 1
     assert state.calls == 2
     # elapsed 600ms (total 2300ms)
-    state = ExTimer.update(state, 0.6)
+    state = ExTimer.update(state, 600)
     assert length(state.timers) == 0
     assert state.calls == 3
   end
