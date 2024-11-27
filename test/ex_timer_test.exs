@@ -91,6 +91,20 @@ defmodule ExTimerTest do
     assert state.calls == 3
   end
 
+  test "ex_timer - add timer in expired timeout handler" do
+    state = %{timers: [], elapsed_ticks: 0, calls: 0}
+    state = ExTimer.add(state, {:on_timeout_repeat_1}, 0)
+    assert length(state.timers) == 1
+    # call timeout handler {:on_timeout_repeat_1}
+    state = ExTimer.update(state, 0)
+    assert state.calls == 1
+    # add new timer(with no_delay) in timeout handler {:on_timeout_repeat_1}
+    assert length(state.timers) == 1
+    state = ExTimer.update(state, 0)
+    assert state.calls == 2
+    assert length(state.timers) == 0
+  end
+
   def handle_info({:timeout_no_delay, arg0, arg1}, state) do
     assert arg0 == :name
     assert arg1 == "min"
@@ -106,6 +120,17 @@ defmodule ExTimerTest do
   end
 
   def handle_info({_arg0, _arg1, _arg2}, state) do
+    state = put_in(state.calls, state.calls + 1)
+    {:noreply, state}
+  end
+
+  def handle_info({:on_timeout_repeat_1}, state) do
+    state = ExTimer.add(state, {:on_timeout_repeat_2}, 0)
+    state = put_in(state.calls, state.calls + 1)
+    {:noreply, state}
+  end
+
+  def handle_info({:on_timeout_repeat_2}, state) do
     state = put_in(state.calls, state.calls + 1)
     {:noreply, state}
   end
