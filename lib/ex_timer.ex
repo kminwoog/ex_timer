@@ -131,15 +131,16 @@ defmodule ExTimer do
   @doc false
   @spec update_expired(state(), time_ms(), module()) :: state()
   def update_expired(state, delta_ms, caller) do
-    state = put_in(state.elapsed_ticks, state.elapsed_ticks + delta_ms)
+    elapsed_ticks = state.elapsed_ticks + delta_ms
+    state = put_in(state.elapsed_ticks, elapsed_ticks)
 
-    {state, timers} =
-      reduce(state.timers, state, fn timer, state ->
+    {state, removed_timers} = reduce_expired(state.timers, {state, []})
+
+    state =
+      Enum.reduce(removed_timers, state, fn timer, state ->
         {:noreply, state} = caller.handle_info(timer.msg, state)
         state
       end)
-
-    state = put_in(state.timers, timers)
 
     if state.timers == [] or state.elapsed_ticks + delta_ms > @int_max do
       adjust(state)
@@ -244,15 +245,16 @@ defmodule ExTimer do
 
   defp equal?(_lhs, _rhs), do: false
 
-  @spec reduce(nil | [timer_node()], state(), function()) :: {state(), [timer_node()]}
-  defp reduce(nil, state, _func), do: {state, []}
-  defp reduce([], state, _func), do: {state, []}
+  @spec reduce_expired(nil | [timer_node()], {state(), [timer_node()]}) ::
+          {state(), [timer_node()]}
+  defp reduce_expired(nil, {state, []}), do: {state, []}
+  defp reduce_expired([], {state, remove_timers}), do: {put_in(state.timers, []), remove_timers}
 
-  defp reduce([h | t] = list, state, func) do
+  defp reduce_expired([h | t] = timers, {state, remove_timers}) do
     if h.delay <= state.elapsed_ticks do
-      reduce(t, func.(h, state), func)
+      reduce_expired(t, {state, [h | remove_timers]})
     else
-      {state, list}
+      {put_in(state.timers, timers), remove_timers}
     end
   end
 

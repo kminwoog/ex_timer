@@ -105,6 +105,30 @@ defmodule ExTimerTest do
     assert length(state.timers) == 0
   end
 
+  test "ex_timer - gurantee order of timers after expired timers" do
+    state = %{timers: [], elapsed_ticks: 0, calls: 0}
+    state = ExTimer.add(state, {:some_timer3}, 3)
+    state = ExTimer.add(state, {:some_timer2}, 2)
+    state = ExTimer.add(state, {:some_timer1}, 1)
+    state = ExTimer.add(state, {:some_timer4}, 4)
+    state = ExTimer.add(state, {:some_timer5}, 5)
+    assert length(state.timers) == 5
+    assert Enum.at(state.timers, 0).msg == {:some_timer1}
+    assert Enum.at(state.timers, 1).msg == {:some_timer2}
+    assert Enum.at(state.timers, 2).msg == {:some_timer3}
+    assert Enum.at(state.timers, 3).msg == {:some_timer4}
+    assert Enum.at(state.timers, 4).msg == {:some_timer5}
+
+    # call timeout handler
+    state = ExTimer.update(state, 3)
+    assert state.calls == 3
+    assert length(state.timers) == 2
+
+    # check order of timers
+    assert Enum.at(state.timers, 0).msg == {:some_timer4}
+    assert Enum.at(state.timers, 1).msg == {:some_timer5}
+  end
+
   def handle_info({:timeout_no_delay, arg0, arg1}, state) do
     assert arg0 == :name
     assert arg1 == "min"
@@ -119,11 +143,6 @@ defmodule ExTimerTest do
     {:noreply, state}
   end
 
-  def handle_info({_arg0, _arg1, _arg2}, state) do
-    state = put_in(state.calls, state.calls + 1)
-    {:noreply, state}
-  end
-
   def handle_info({:on_timeout_repeat_1}, state) do
     state = ExTimer.add(state, {:on_timeout_repeat_2}, 0)
     state = put_in(state.calls, state.calls + 1)
@@ -131,6 +150,16 @@ defmodule ExTimerTest do
   end
 
   def handle_info({:on_timeout_repeat_2}, state) do
+    state = put_in(state.calls, state.calls + 1)
+    {:noreply, state}
+  end
+
+  def handle_info({_some_timer}, state) do
+    state = put_in(state.calls, state.calls + 1)
+    {:noreply, state}
+  end
+
+  def handle_info({_arg0, _arg1, _arg2}, state) do
     state = put_in(state.calls, state.calls + 1)
     {:noreply, state}
   end
