@@ -195,17 +195,17 @@ defmodule ExTimer do
     {state, timer} = ExTimer.update(state, state.timer)
     state = put_in(state.timer, timer)
     ...
-    Process.send_after(self(), {:tick}, ExTimer.next_expire_ticks(state.timer, 1000))
+    Process.send_after(self(), {:tick}, ExTimer.get_next_expiration(state.timer, 1000))
     {:noreply, state}
   end
   ```
   """
-  @spec next_expire_ticks(t(), time_ms()) :: time_ms()
-  def next_expire_ticks(timer, min_time) do
+  @spec get_next_expiration(t(), time_ms()) :: time_ms()
+  def get_next_expiration(timer, min_time) do
     if Enum.empty?(timer.timers) do
       min_time
     else
-      min(hd(timer.timers).due_ms - timer.now_ms.(), 0)
+      max(hd(timer.timers).due_ms - timer.now_ms.(), 0)
     end
   end
 
