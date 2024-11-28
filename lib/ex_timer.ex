@@ -118,11 +118,13 @@ defmodule ExTimer do
   call the callback handler (handle_timer) for the timer that has elapsed.
 
   ## Examples
+  ```
   def handle_timer({:tick}, state) do
     ...
-    {state, timer} = ExTimer.update(state, timer)
+    {state, timer} = ExTimer.update(state, state.timer)
+    state = put_in(state.timer, timer)
     ...
-    {:noreply, state}
+    {state, timer}
   end
   ```
   """
@@ -188,9 +190,10 @@ defmodule ExTimer do
 
   ```elixir
 
-  def handle_timer({:tick}, state) do
+  def handle_info({:tick}, state) do
     ...
-    state = ExTimer.update(state, timer)
+    {state, timer} = ExTimer.update(state, state.timer)
+    state = put_in(state.timer, timer)
     ...
     Process.send_after(self(), {:tick}, ExTimer.next_expire_ticks(state.timer, 1000))
     {:noreply, state}
