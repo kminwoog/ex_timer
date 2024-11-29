@@ -89,11 +89,11 @@ defmodule ExTimer do
   iex> timer = ExTimer.new(now_ms: now_ref)
   iex> timer = ExTimer.add(timer, {:handler, :name, "uhaha"}, 2000)
   %ExTimer{timers: [%ExTimer.Node{due_ms: 2500, msg: {:handler, :name, "uhaha"}}], now_ms: now_ref}
-  iex> {_state, _timer} = ExTimer.clear(state, timer)
+  iex> {_state, _timer} = ExTimer.clear(state, timer, false)
   {%{}, %ExTimer{timers: [], now_ms: now_ref}}
   ```
   """
-  defmacro clear(state, timer, callback? \\ false) do
+  defmacro clear(state, timer, callback?) do
     quote bind_quoted: [state: state, timer: timer, callback?: callback?] do
       ExTimer.clear_expired(__ENV__.module, timer, state, callback?)
     end
@@ -112,6 +112,31 @@ defmodule ExTimer do
       end
 
     {state, put_in(timer.timers, [])}
+  end
+
+  @doc ~S"""
+  delete all the registerd timers.
+
+  ## Examples
+  ```elixir
+  iex> now_ref = fn -> 500 end
+  iex> timer = ExTimer.new(now_ms: now_ref)
+  iex> timer = ExTimer.add(timer, {:handler, :name1, "a1"}, 1000)
+  iex> timer = ExTimer.add(timer, {:handler, :name2, "a2"}, 2000)
+  %ExTimer{
+  timers: [
+    %ExTimer.Node{due_ms: 1500, msg: {:handler, :name1, "a1"}},
+    %ExTimer.Node{due_ms: 2500, msg: {:handler, :name2, "a2"}}
+  ],
+  now_ms: now_ref
+  }
+  iex> ExTimer.clear(timer)
+  %ExTimer{timers: [], now_ms: now_ref}
+  ```
+  """
+  @spec clear(t()) :: t()
+  def clear(timer) do
+    put_in(timer.timers, [])
   end
 
   @doc """

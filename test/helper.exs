@@ -17,7 +17,7 @@ defmodule Helper do
 
   defmacro clear_timer(state) do
     quote bind_quoted: [state: state] do
-      {state, timer} = ExTimer.clear(state, state.timer)
+      {state, timer} = ExTimer.clear(state, state.timer, false)
       put_in(state.timer, timer)
     end
   end
