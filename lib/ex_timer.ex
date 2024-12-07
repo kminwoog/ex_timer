@@ -140,13 +140,21 @@ defmodule ExTimer do
   end
 
   @doc """
+  whether the registered timers are empty.
+  """
+  @spec empty?(t()) :: boolean()
+  def empty?(timer) do
+    timer.timers == []
+  end
+
+  @doc """
   call the callback handler (handle_timer) for the timer that has elapsed.
 
   ## Examples
   ```
-  def handle_timer({:tick}, state) do
+  def handle_timer({:tick}, timer, state) do
     ...
-    {state, timer} = ExTimer.update(state, state.timer)
+    {state, timer} = ExTimer.update(state, timer)
     state = put_in(state.timer, timer)
     ...
     {state, timer}
