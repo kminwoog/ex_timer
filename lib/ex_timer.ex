@@ -228,17 +228,17 @@ defmodule ExTimer do
     {state, timer} = ExTimer.update(state, state.timer)
     state = put_in(state.timer, timer)
     ...
-    Process.send_after(self(), {:tick}, ExTimer.get_next_expiration(state.timer, 1000))
+    Process.send_after(self(), {:tick}, ExTimer.get_next_expiration(state.timer, 100, 1000))
     {:noreply, state}
   end
   ```
   """
-  @spec get_next_expiration(t(), time_ms()) :: time_ms()
-  def get_next_expiration(timer, min_time) do
+  @spec get_next_expiration(t(), time_ms(), time_ms()) :: time_ms()
+  def get_next_expiration(timer, min_time \\ 100, max_time \\ 1000) do
     if Enum.empty?(timer.timers) do
-      min_time
+      max_time
     else
-      max(hd(timer.timers).due_ms - timer.now_ms.(), 0)
+      clamp(hd(timer.timers).due_ms - timer.now_ms.(), min_time, max_time)
     end
   end
 
@@ -269,6 +269,12 @@ defmodule ExTimer do
   end
 
   defp equal?(_lhs, _rhs), do: false
+
+  @spec clamp(x :: number(), min :: number(), max :: number()) :: number()
+  defp clamp(x, min, max) when max < min, do: clamp(x, max, min)
+  defp clamp(x, min, _) when x < min, do: min
+  defp clamp(x, _, max) when x > max, do: max
+  defp clamp(x, _, _), do: x
 
   @spec reduce_expired(nil | [timer_node()], {t(), [timer_node()]}, integer()) ::
           {t(), [timer_node()]}
